@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Симулятор собеседования — Системный аналитик</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f0f11; --surface: #18181c; --surface2: #1f1f25;
+  --border: rgba(255,255,255,0.08); --border-hover: rgba(255,255,255,0.16);
+  --text: #f0efe8; --text-muted: #888880; --text-dim: #444442;
+  --accent: #7F77DD; --accent-light: #AFA9EC; --accent-bg: rgba(127,119,221,0.12); --accent-border: rgba(127,119,221,0.4);
+  --success: #1D9E75; --success-bg: rgba(29,158,117,0.12);
+  --warn: #BA7517; --warn-bg: rgba(186,117,23,0.12);
+  --danger: #E24B4A; --danger-bg: rgba(226,75,74,0.12);
+  --radius: 10px; --radius-sm: 6px;
+}
+body { background: var(--bg); color: var(--text); font-family: Georgia, serif; min-height: 100vh; }
+#api-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.2rem; text-align:center; padding:2rem; }
+#api-screen h1 { font-size:1.4rem; font-weight:400; }
+#api-screen h1 span { color:var(--accent-light); }
+#api-screen p { color:var(--text-muted); font-size:0.88rem; line-height:1.6; max-width:400px; }
+#api-key-input { width:100%; max-width:400px; background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:'Courier New',monospace; font-size:0.85rem; padding:10px 14px; outline:none; transition:border-color 0.15s; }
+#api-key-input:focus { border-color:var(--accent); }
+#app { display:none; max-width:880px; margin:0 auto; padding:2rem 1.5rem 5rem; }
+.nav-tabs { display:flex; gap:2px; margin-bottom:2rem; border-bottom:0.5px solid var(--border); }
+.nav-tab { font-family:'Courier New',monospace; font-size:0.78rem; padding:8px 16px; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-0.5px; transition:all 0.15s; background:none; border-top:none; border-left:none; border-right:none; }
+.nav-tab:hover { color:var(--text); }
+.nav-tab.active { color:var(--accent-light); border-bottom-color:var(--accent); }
+.topics-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1.5rem; }
+.topic-pill { font-size:0.75rem; font-family:'Courier New',monospace; padding:5px 12px; border-radius:20px; border:0.5px solid var(--border); background:var(--surface); color:var(--text-muted); cursor:pointer; transition:all 0.15s; }
+.topic-pill:hover { border-color:var(--accent); color:var(--accent-light); }
+.topic-pill.active { background:var(--accent-bg); border-color:var(--accent); color:var(--accent-light); }
+.theory-section { display:none; }
+.theory-section.visible { display:block; }
+.theory-block { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1rem; }
+.theory-block h2 { font-size:1rem; font-weight:500; color:var(--accent-light); margin-bottom:1rem; font-family:'Courier New',monospace; letter-spacing:0.02em; }
+.theory-block p { font-size:0.9rem; line-height:1.75; color:var(--text); margin-bottom:0.7rem; }
+.theory-block p:last-child { margin-bottom:0; }
+.theory-block strong { color:var(--accent-light); font-weight:500; }
+.code-block { background:var(--surface2); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:0.8rem 1rem; font-family:'Courier New',monospace; font-size:0.8rem; color:#a8c8a0; margin:0.8rem 0; line-height:1.6; overflow-x:auto; white-space:pre; }
+.kv-list { list-style:none; margin:0.5rem 0; }
+.kv-list li { font-size:0.88rem; line-height:1.65; padding:0.3rem 0; border-bottom:0.5px solid var(--border); color:var(--text); }
+.kv-list li:last-child { border-bottom:none; }
+.kv-list li::before { content:"\2192 "; color:var(--accent); }
+.interview-q-block { background:var(--surface2); border-left:2px solid var(--accent); border-radius:0 var(--radius-sm) var(--radius-sm) 0; padding:0.6rem 0.9rem; margin-top:0.8rem; font-size:0.82rem; color:var(--text-muted); line-height:1.55; }
+.interview-q-block strong { color:var(--accent-light); font-weight:500; display:block; margin-bottom:0.3rem; font-family:'Courier New',monospace; font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase; }
+.start-btn-wrap { margin-top:1.5rem; text-align:center; }
+.interview-section { display:none; }
+.interview-section.visible { display:block; }
+.progress-bar-wrap { height:2px; background:var(--surface2); border-radius:2px; margin-bottom:1.5rem; }
+.progress-bar-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s ease; }
+.card { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1rem; }
+.q-label { font-family:'Courier New',monospace; font-size:0.7rem; color:var(--text-dim); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.6rem; }
+.topic-tag { display:inline-block; font-family:'Courier New',monospace; font-size:0.7rem; padding:2px 8px; border-radius:20px; background:var(--accent-bg); color:var(--accent-light); border:0.5px solid var(--accent-border); margin-bottom:0.8rem; }
+.q-text { font-size:1.05rem; line-height:1.65; margin-bottom:1.2rem; }
+.hint-block { font-size:0.82rem; color:var(--text-muted); background:var(--surface2); border-left:2px solid var(--accent); padding:0.7rem 1rem; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-bottom:1rem; display:none; line-height:1.55; }
+.hint-block.visible { display:block; }
+.answer-wrap { position:relative; }
+textarea { width:100%; min-height:130px; background:var(--surface2); border:0.5px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:Georgia,serif; font-size:0.95rem; line-height:1.6; padding:0.9rem 3.2rem 0.9rem 1rem; resize:vertical; outline:none; transition:border-color 0.15s; }
+textarea:focus { border-color:var(--border-hover); }
+#mic-btn { position:absolute; right:8px; bottom:8px; border:0.5px solid var(--border); background:var(--surface); padding:5px 8px; border-radius:var(--radius-sm); cursor:pointer; font-size:1rem; line-height:1; color:var(--text-muted); transition:all 0.15s; }
+#voice-status { font-family:'Courier New',monospace; font-size:0.75rem; color:var(--accent-light); display:none; margin-top:4px; }
+.btn-row { display:flex; gap:8px; margin-top:1rem; flex-wrap:wrap; }
+button { font-family:'Courier New',monospace; font-size:0.78rem; padding:8px 16px; border-radius:var(--radius-sm); cursor:pointer; border:0.5px solid var(--border); background:transparent; color:var(--text-muted); transition:all 0.15s; letter-spacing:0.02em; }
+button:hover { border-color:var(--border-hover); color:var(--text); }
+button.primary { background:var(--accent-bg); border-color:var(--accent); color:var(--accent-light); }
+button.primary:hover { background:rgba(127,119,221,0.22); }
+button:disabled { opacity:0.35; cursor:not-allowed; }
+.feedback-card { background:var(--surface2); border:0.5px solid var(--border); border-radius:var(--radius); padding:1.4rem 1.6rem; margin-top:1rem; display:none; }
+.feedback-card.visible { display:block; }
+.score-row { display:flex; align-items:center; gap:10px; margin-bottom:1rem; }
+.score-badge { font-family:'Courier New',monospace; font-size:0.7rem; padding:3px 10px; border-radius:20px; font-weight:600; letter-spacing:0.05em; }
+.s-strong { background:var(--success-bg); color:var(--success); border:0.5px solid var(--success); }
+.s-mid { background:var(--warn-bg); color:var(--warn); border:0.5px solid var(--warn); }
+.s-weak { background:var(--danger-bg); color:var(--danger); border:0.5px solid var(--danger); }
+.fb-section { margin-bottom:1rem; }
+.fb-section-title { font-family:'Courier New',monospace; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); margin-bottom:0.4rem; }
+.fb-text { font-size:0.9rem; line-height:1.75; color:var(--text); }
+.fb-text strong { color:var(--accent-light); font-weight:500; }
+.ideal-block { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:1rem 1.1rem; margin-top:0.8rem; }
+.summary-card { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius); padding:2rem; text-align:center; display:none; }
+.summary-card.visible { display:block; }
+.summary-stat { font-size:2.8rem; font-weight:400; color:var(--accent-light); }
+.summary-label { font-size:0.78rem; color:var(--text-muted); font-family:'Courier New',monospace; margin-top:4px; }
+.summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:1.5rem 0; }
+.summary-cell { background:var(--surface2); border-radius:var(--radius-sm); padding:1rem; }
+.summary-cell-val { font-size:1.6rem; font-weight:400; }
+.summary-cell-lbl { font-size:0.72rem; color:var(--text-muted); font-family:'Courier New',monospace; margin-top:2px; }
+.loading-dots::after { content:''; animation:dots 1s steps(3,end) infinite; }
+@keyframes dots { 0%{content:''} 33%{content:'.'} 66%{content:'..'} 100%{content:'...'} }
+</style>
+</head>
+<body>
+<div id="api-screen">
+  <div>
+    <h1>Симулятор <span>собеседования</span></h1>
+    <p style="margin-top:0.4rem;font-size:0.75rem;color:var(--text-dim);font-family:'Courier New',monospace;">Системный аналитик &middot; Подготовка к Альфа Банк</p>
+  </div>
+  <p>Для работы нужен API-ключ Anthropic. Он не сохраняется и используется только в этой сессии.</p>
+  <input id="api-key-input" type="password" placeholder="sk-ant-api03-..." />
+  <button class="primary" onclick="startApp()">Начать</button>
+  <p style="font-size:0.73rem;color:var(--text-dim);font-family:'Courier New',monospace;">Получить ключ: console.anthropic.com &rarr; API Keys</p>
+</div>
+<div id="app">
+  <div style="margin-bottom:1.8rem;">
+    <div style="font-family:'Courier New',monospace;font-size:0.72rem;color:var(--text-dim);margin-bottom:0.5rem;letter-spacing:0.08em;">СИСТЕМНЫЙ АНАЛИТИК &middot; ПОДГОТОВКА</div>
+    <h1 style="font-size:1.45rem;font-weight:400;letter-spacing:-0.02em;">Альфа Банк <span style="color:var(--accent-light);">Интервью</span></h1>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchMode('theory')">Теория</button>
+    <button class="nav-tab" onclick="switchMode('interview')">Интервью</button>
+  </div>
+  <div class="theory-section visible" id="theory-section">
+    <div class="topics-bar" id="theory-topics"></div>
+    <div id="theory-content"></div>
+    <div class="start-btn-wrap">
+      <button class="primary" onclick="switchMode('interview')" style="padding:10px 28px;font-size:0.85rem;">Перейти к интервью &rarr;</button>
+    </div>
+  </div>
+  <div class="interview-section" id="interview-section">
+    <div class="topics-bar" id="interview-topics"></div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div id="question-area">
+      <div class="card">
+        <div class="q-label">Вопрос <span id="q-num">1</span> из <span id="q-total">1</span></div>
+        <div class="topic-tag" id="q-topic"></div>
+        <div class="q-text" id="q-text"></div>
+        <div class="hint-block" id="q-hint"></div>
+        <div class="answer-wrap">
+          <textarea id="answer-input" placeholder="Напиши ответ или нажми микрофон..."></textarea>
+          <button id="mic-btn" onclick="toggleVoice()" title="Голосовой ввод">&#127908;</button>
+        </div>
+        <div id="voice-status">&#9679; Слушаю...</div>
+        <div class="btn-row">
+          <button class="primary" id="submit-btn" onclick="submitAnswer()">Проверить ответ</button>
+          <button onclick="toggleHint()">Подсказка</button>
+          <button onclick="skipQuestion()">Пропустить</button>
+        </div>
+      </div>
+      <div class="feedback-card" id="feedback-area">
+        <div class="score-row">
+          <div class="score-badge" id="score-badge"></div>
+          <div style="font-size:0.75rem;color:var(--text-muted);font-family:'Courier New',monospace;" id="score-num"></div>
+        </div>
+        <div class="fb-section"><div class="fb-section-title">Оценка ответа</div><div class="fb-text" id="fb-evaluation"></div></div>
+        <div class="fb-section"><div class="fb-section-title">Что не прозвучало</div><div class="fb-text" id="fb-missing"></div></div>
+        <div class="fb-section"><div class="fb-section-title">Как правильно</div><div class="ideal-block"><div class="fb-text" id="fb-ideal"></div><div class="code-block" id="fb-code" style="display:none;"></div></div></div>
+        <div class="fb-section"><div class="fb-section-title">Совет</div><div class="fb-text" id="fb-tip"></div></div>
+        <div class="btn-row" style="margin-top:1.2rem;"><button class="primary" onclick="nextQuestion()">Следующий вопрос &rarr;</button></div>
+      </div>
+    </div>
+    <div class="summary-card" id="summary-area">
+      <div style="margin-bottom:1.5rem;"><div class="summary-stat" id="summary-score"></div><div class="summary-label">средняя оценка</div></div>
+      <div class="summary-grid">
+        <div class="summary-cell"><div class="summary-cell-val" id="s-answered"></div><div class="summary-cell-lbl">отвечено</div></div>
+        <div class="summary-cell"><div class="summary-cell-val" style="color:var(--success);" id="s-strong"></div><div class="summary-cell-lbl">сильных (4-5)</div></div>
+        <div class="summary-cell"><div class="summary-cell-val" style="color:var(--danger);" id="s-weak"></div><div class="summary-cell-lbl">слабых (1-2)</div></div>
+      </div>
+      <button class="primary" onclick="restartSession()" style="padding:10px 24px;">Пройти снова</button>
+    </div>
+  </div>
+</div>
+<script>
+const THEORY = {
+  'Архитектура': [
+    { title: 'Микросервисы: что это и зачем',
+      body: '<p><strong>Микросервисная архитектура</strong> — подход, при котором приложение разбивается на набор небольших независимых сервисов, каждый из которых отвечает за одну бизнес-функцию, деплоится и масштабируется независимо.</p><p><strong>Монолит vs микросервисы:</strong> монолит проще в разработке на старте, но сложнее масштабировать. Микросервисы дают гибкость деплоя, независимость команд, горизонтальное масштабирование — но добавляют сложность в операционке и мониторинге.</p><p><strong>В финтехе</strong> типичная структура: сервис счетов, сервис платежей, сервис нотификаций, сервис аутентификации, сервис брокерского обслуживания — каждый живёт отдельно, имеет свою БД.</p>',
+      interview: 'Чем микросервисы лучше монолита? Когда стоит оставить монолит?' },
+    { title: 'Разбиение на сервисы: DDD и Bounded Context',
+      body: '<p><strong>Domain-Driven Design (DDD)</strong> — подход к проектированию, при котором структура системы отражает бизнес-домен. Ключевой концепт — <strong>Bounded Context</strong>: чётко очерченная область с одной моделью данных.</p><p><strong>Принцип единой ответственности</strong>: сервис делает одну вещь. Если его сложно назвать одним существительным — его нужно разбить.</p><p><strong>Закон Конвея</strong>: структура системы повторяет структуру коммуникаций в команде. Одна команда — один сервис.</p><p><strong>Практический критерий</strong>: можно ли задеплоить этот сервис, не трогая другие? Если да — граница правильная.</p>',
+      interview: 'По какому принципу разбиваешь монолит на микросервисы? Что такое Bounded Context?' },
+    { title: 'Оркестрация vs Хореография',
+      body: '<p><strong>Оркестрация</strong>: есть центральный координатор, который последовательно вызывает сервисы. Легко дебажить, видна полная картина. Минус: оркестратор — точка отказа.</p><p><strong>Хореография</strong>: каждый сервис реагирует на событие и публикует следующее. Нет центра управления. Хорошо масштабируется. Минус: сложнее трассировать поток.</p><p><strong>Когда оркестрацию</strong>: сложные бизнес-процессы с ветвлениями и компенсациями, нужна видимость всего потока.</p><p><strong>Когда хореографию</strong>: независимые события, нет строгого порядка, высокая нагрузка.</p>',
+      interview: 'Объясни разницу между оркестрацией и хореографией. Когда что выбираешь?' },
+    { title: 'Паттерн Saga: распределённые транзакции',
+      body: '<p>В микросервисах нет общей ACID-транзакции через несколько БД. <strong>Saga</strong> — способ управлять бизнес-процессом, затрагивающим несколько сервисов.</p><p>Каждый шаг Saga — локальная транзакция. Для каждого шага есть <strong>компенсирующая операция</strong> — что делать при откате.</p><p><strong>Choreography Saga</strong>: сервисы обмениваются событиями. <strong>Orchestration Saga</strong>: координатор (SEC) явно вызывает каждый шаг.</p><p><strong>Пример</strong>: перевод денег — списание со счёта А, зачисление на счёт Б, нотификация. Если зачисление упало — SEC запускает возврат на счёт А.</p>',
+      interview: 'Что такое паттерн Saga? Как решает проблему распределённых транзакций?' },
+    { title: 'Синхронное vs асинхронное взаимодействие',
+      body: '<p><strong>Синхронное (REST, gRPC)</strong>: клиент ждёт ответа. Просто, предсказуемо. Проблема: если сервис недоступен — запрос падает.</p><p><strong>Асинхронное (Kafka, RabbitMQ)</strong>: отправитель публикует сообщение и не ждёт. Слабая связность, устойчивость к сбоям, буферизация нагрузки.</p><p><strong>Когда синхронно</strong>: нужен немедленный ответ (запрос баланса, оплата).</p><p><strong>Когда асинхронно</strong>: уведомления, логирование, обработка в фоне, интеграция с внешними системами.</p>',
+      interview: 'Когда использовать синхронное взаимодействие, а когда асинхронное?' },
+    { title: 'Kafka vs RabbitMQ',
+      body: '<p><strong>Apache Kafka</strong> — распределённый лог событий. Сообщения хранятся на диске, можно перечитать. Consumer group: каждое сообщение — одному потребителю из группы. Высокая пропускная способность.</p><p><strong>RabbitMQ</strong> — брокер сообщений. Сообщение обрабатывается один раз и удаляется. Сложный routing (direct, topic, fanout). Проще в настройке.</p><p><strong>Kafka</strong>: event sourcing, аналитика, replay событий, высокий throughput.</p><p><strong>RabbitMQ</strong>: task queues, RPC, сложный routing, небольшой объём.</p>',
+      interview: 'В чём разница между Kafka и RabbitMQ? Когда какой выберешь?' },
+    { title: 'Балансировщики нагрузки',
+      body: '<p><strong>Load Balancer</strong> распределяет входящие запросы между экземплярами сервиса. Обеспечивает доступность и масштабируемость.</p><p><strong>Round Robin</strong>: по очереди. <strong>Least Connections</strong>: к серверу с минимумом активных соединений (для WebSocket). <strong>IP Hash</strong>: один IP всегда на один сервер (sticky sessions). <strong>Weighted</strong>: мощным серверам — больший вес.</p><p><strong>L4 vs L7</strong>: L4 — TCP-уровень (быстрее), L7 — HTTP-уровень (умнее: смотрит URL, заголовки, cookies).</p>',
+      interview: 'Что такое балансировщик? Назови алгоритмы и объясни разницу.' },
+    { title: 'API Gateway',
+      body: '<p><strong>API Gateway</strong> — единая точка входа перед микросервисами. Берёт на себя сквозную функциональность.</p><p><strong>Что делает</strong>: маршрутизация к нужному сервису, аутентификация (проверка JWT), rate limiting, логирование, трансформация запросов, SSL termination, агрегация ответов.</p><p><strong>BFF (Backend for Frontend)</strong>: отдельный Gateway для каждого типа клиента (мобайл, веб, партнёры) — оптимизирован под свои нужды.</p>',
+      interview: 'Что такое API Gateway? Какие задачи он решает?' },
+    { title: 'Паттерны интеграции: ESB, Point-to-Point, Pub/Sub',
+      body: '<p><strong>Point-to-Point</strong>: сервис А напрямую вызывает сервис Б. Просто, но создаёт жёсткую связность.</p><p><strong>ESB (Enterprise Service Bus)</strong>: центральная шина для трансформации и маршрутизации сообщений. Популярно в банках с legacy. Минус: узкое место и точка отказа.</p><p><strong>Pub/Sub</strong>: издатель публикует событие в топик, не зная подписчиков. Слабая связность, легко добавлять потребителей. Реализуется через Kafka, RabbitMQ fanout.</p>',
+      interview: 'Чем Pub/Sub отличается от Point-to-Point? Когда применяется ESB?' },
+    { title: 'Отказоустойчивость: Circuit Breaker, Retry, Timeout',
+      body: '<p><strong>Timeout</strong>: если сервис не ответил за N мс — прерываем ожидание. Обязателен для каждого внешнего вызова.</p><p><strong>Retry</strong>: повторить при сетевой ошибке. Только для идемпотентных операций. С exponential backoff (1с, 2с, 4с).</p><p><strong>Circuit Breaker</strong>: если N% запросов падают — «размыкаем» цепь и сразу возвращаем ошибку. Через время пробуем снова (half-open). Предотвращает каскадные отказы.</p><p><strong>Fallback</strong>: при отказе вернуть кешированный результат или заглушку.</p>',
+      interview: 'Что такое Circuit Breaker? Как работает и зачем нужен?' },
+    { title: 'Мониторинг и трассировка',
+      body: '<p><strong>Distributed Tracing</strong>: каждому запросу — Trace ID, который передаётся через все сервисы. Восстанавливает полный путь запроса. Инструменты: Jaeger, Zipkin, OpenTelemetry.</p><p><strong>Метрики</strong>: Counter (запросы), Gauge (использование памяти), Histogram (время ответа по перцентилям). Стек: Prometheus + Grafana.</p><p><strong>Логирование</strong>: структурированные JSON-логи с полями timestamp, service, trace_id, level, message. ELK Stack.</p><p><strong>Alerting</strong>: алерты на ключевые метрики. В финтехе: latency p95 >500мс, error rate >1%, доступность <99.9%.</p>',
+      interview: 'Как мониторить микросервисную систему? Что такое distributed tracing?' },
+  ],
+  'REST API': [
+    { title: 'Основы REST: принципы и ресурсы',
+      body: '<p><strong>REST</strong> — архитектурный стиль. Ключевые принципы: клиент-сервер, stateless, uniform interface, cacheable.</p><p><strong>Ресурс</strong> — центральная концепция: пользователь, счёт, транзакция. Идентифицируется URI.</p><p><strong>Именование URI</strong>: существительные во множественном числе (/accounts, /transactions). Глаголы в URI — антипаттерн. Действия — через HTTP-методы. Исключение: нестандартные действия (/accounts/{id}/freeze).</p><p><strong>Stateless</strong>: сервер не хранит состояние клиента. Вся информация — в каждом запросе (токен, параметры). Обеспечивает масштабируемость.</p>',
+      interview: 'Что такое REST? Назови основные принципы.' },
+    { title: 'HTTP-методы: GET, POST, PUT, PATCH, DELETE',
+      body: '<p><strong>GET</strong>: получить ресурс. Безопасный, идемпотентный. Параметры в query string.</p><p><strong>POST</strong>: создать или выполнить действие. Не идемпотентен. Ответ: 201 Created + Location.</p><p><strong>PUT</strong>: полная замена ресурса. Всё тело целиком. Идемпотентен.</p><p><strong>PATCH</strong>: частичное обновление. Только изменённые поля.</p><p><strong>DELETE</strong>: удалить. Идемпотентен (повторное — 404, но состояние не меняется).</p><p><strong>HEAD</strong>: как GET, без тела — для проверки существования ресурса.</p><p><strong>OPTIONS</strong>: узнать доступные методы. Используется в CORS preflight.</p>',
+      interview: 'Чем PUT отличается от PATCH? Какие методы идемпотентны?' },
+    { title: 'Идемпотентность',
+      body: '<p><strong>Идемпотентность</strong>: повторный вызов с теми же параметрами даёт тот же результат.</p><p><strong>Идемпотентные</strong>: GET, PUT, DELETE, HEAD, OPTIONS. <strong>Не идемпотентен</strong>: POST.</p><p><strong>Почему важно</strong>: при сетевых сбоях клиент повторяет запрос (retry). Для идемпотентных — безопасно. Для POST — нет, будут дубликаты.</p><p><strong>Idempotency Key</strong>: клиент генерирует UUID и передаёт в заголовке. Сервер запоминает результат — при повторе возвращает тот же ответ без повторного выполнения. Критично в финансовых API: нельзя списать дважды.</p>',
+      interview: 'Что такое идемпотентность? Почему критична для платёжного API?' },
+    { title: 'Структура URL: путь и query-параметры',
+      body: '<p><strong>ID ресурса — в пути</strong>: /accounts/{accountId}/transactions/{txId}.</p><p><strong>Фильтрация, сортировка, пагинация — в query</strong>: /transactions?status=completed&from=2024-01-01&sort=amount&order=desc&page=2&limit=50.</p><p><strong>Вложенные ресурсы</strong>: /accounts/{accountId}/transactions — транзакции конкретного счёта. Глубже 2 уровней — выносить в отдельный ресурс с фильтром.</p><p><strong>Пагинация</strong>: offset-based (page/limit) — просто, медленно на больших объёмах. Cursor-based (after=last_id) — эффективнее для больших таблиц.</p>',
+      interview: 'Как строить URL? Когда ID в пути, когда в query?' },
+    { title: 'HTTP-коды ответов',
+      body: '<p><strong>2xx — успех</strong>: 200 OK, 201 Created (+ Location), 202 Accepted (асинхронно), 204 No Content.</p><p><strong>4xx — ошибка клиента</strong>: 400 Bad Request, 401 Unauthorized (не аутентифицирован), 403 Forbidden (нет прав), 404 Not Found, 409 Conflict (дубликат), 422 Unprocessable Entity (семантически невалидно), 429 Too Many Requests.</p><p><strong>5xx — ошибка сервера</strong>: 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout.</p><p><strong>В финтехе</strong>: 422 для отрицательной суммы перевода, 409 для дублирующего платежа.</p>',
+      interview: 'Какой код при дублирующем платеже? Чем 401 отличается от 403?' },
+    { title: 'OpenAPI и Swagger',
+      body: '<p><strong>OpenAPI Specification</strong> — стандарт описания REST API в YAML/JSON. Описывает эндпоинты, методы, параметры, схемы данных, коды ошибок, аутентификацию.</p><p><strong>Swagger UI</strong>: веб-интерфейс для визуализации и тестирования API.</p><p><strong>Contract-first</strong>: сначала описываем API-контракт, согласовываем, затем реализуем. Фронтенд и бэкенд работают параллельно.</p><p><strong>Что должно быть</strong>: все эндпоинты, параметры с типами, примеры, все коды ошибок, схемы данных, описание аутентификации.</p>',
+      interview: 'Что такое OpenAPI? Зачем нужна спецификация API?' },
+    { title: 'Версионирование API',
+      body: '<p>Нужно при breaking change: изменение структуры ответа, удаление полей, смена семантики.</p><p><strong>URI versioning</strong>: /v1/accounts. Просто, явно, легко тестировать.</p><p><strong>Header versioning</strong>: Accept: application/vnd.mybank.v1+json. Чище архитектурно, сложнее дебажить.</p><p><strong>Query parameter</strong>: /accounts?version=1. Компромисс.</p><p><strong>Deprecation</strong>: заголовок Deprecation: true, 3-6 месяцев на миграцию, migration guide.</p>',
+      interview: 'Как версионировать API? Плюсы и минусы подходов.' },
+    { title: 'Аутентификация в API',
+      body: '<p><strong>Bearer Token (JWT)</strong>: Authorization: Bearer {token}. Верификация без БД. Стандарт для современных API.</p><p><strong>API Key</strong>: статический ключ в заголовке (X-API-Key). Для server-to-server. Нет информации о пользователе.</p><p><strong>mTLS</strong>: взаимная аутентификация по сертификатам. Используется в межсервисном взаимодействии и интеграции с платёжными системами в финтехе.</p><p><strong>Basic Auth</strong>: логин:пароль в base64. Только через HTTPS. Устарел, в legacy.</p>',
+      interview: 'Как реализовать аутентификацию в REST API? Чем Bearer Token отличается от API Key?' },
+    { title: 'Rate Limiting',
+      body: '<p><strong>Rate Limiting</strong>: ограничение запросов от клиента за единицу времени. Защита от DDoS и перегрузки.</p><p><strong>Алгоритмы</strong>: Fixed Window (счётчик сбрасывается), Sliding Window (точнее), Token Bucket (накапливаются токены, позволяет всплески).</p><p><strong>Ответ клиенту</strong>: 429 Too Many Requests + заголовки X-RateLimit-Limit, X-RateLimit-Remaining, Retry-After.</p><p><strong>В финтехе</strong>: разные лимиты для розничных, корпоративных клиентов и внутренних сервисов.</p>',
+      interview: 'Что такое rate limiting? Как сообщить клиенту об ошибке?' },
+    { title: 'CORS и безопасность API',
+      body: '<p><strong>CORS</strong>: механизм браузера, контролирующий, с каких доменов можно делать запросы. Браузер отправляет preflight OPTIONS-запрос для non-simple запросов. Сервер отвечает заголовками Access-Control-*.</p><p><strong>Обязательно в финтехе</strong>: HTTPS везде, валидация входных данных на сервере (SQL injection, XSS), не передавать токены в URL (попадают в логи и историю браузера).</p><p><strong>Input validation</strong>: всегда на сервере, даже если есть на клиенте.</p>',
+      interview: 'Что такое CORS? Какие меры безопасности обязательны для API в банке?' },
+  ],
+  'Документация': [
+    { title: 'Роль системного аналитика',
+      body: '<p><strong>СА</strong> — связующее звено между бизнесом и разработкой. Переводит бизнес-потребности в технические требования.</p><p><strong>Типичные задачи</strong>: сбор требований, описание процессов (as-is/to-be), проектирование интеграций, техническая документация, ревью архитектурных решений, сопровождение разработки и тестирования.</p><p><strong>Отличие от БА</strong>: БА — бизнес-процессы и стратегия. СА — техническая реализация: как системы взаимодействуют, API, хранение данных.</p>',
+      interview: 'Опиши типичный день СА. Чем отличаешься от бизнес-аналитика?' },
+    { title: 'Артефакты: ФТ, НФТ, ТЗ',
+      body: '<p><strong>Функциональные требования (ФТ)</strong>: что система делает. Use cases, user stories, сценарии. «Система позволяет пользователю...»</p><p><strong>Нефункциональные требования (НФТ)</strong>: как делает. Производительность, доступность, безопасность. Должны быть измеримыми.</p><p><strong>Техническое задание (ТЗ)</strong>: документ для разработчиков — ФТ + НФТ + архитектурные решения + интеграции + модели данных.</p><p><strong>Пользовательская документация</strong>: инструкции для конечных пользователей без технических деталей.</p>',
+      interview: 'Какие артефакты готовишь? Чем ФТ отличаются от НФТ?' },
+    { title: 'НФТ: источники и формализация',
+      body: '<p><strong>Источники</strong>: служба безопасности, архитекторы, SLA с клиентами, регуляторы (ЦБ РФ, PCI DSS), смежные команды.</p><p><strong>Примеры хороших НФТ</strong>:</p><ul class="kv-list"><li>Время ответа API ≤200мс (p95) при 500 RPS</li><li>Доступность ≥99.9% (не более 8.7 часов даунтайма в год)</li><li>Данные шифруются AES-256 в покое, TLS 1.2+ в транзите</li><li>Логирование всех финансовых операций, хранение 5 лет</li><li>RTO ≤15 мин, RPO ≤1 мин</li></ul><p><strong>Антипаттерн</strong>: «система должна быть быстрой» — не НФТ. Каждое требование верифицируемо.</p>',
+      interview: 'Что такое НФТ? Приведи 4 примера с цифрами для брокерской платформы.' },
+    { title: 'Диаграммы: sequence, component, ER, C4',
+      body: '<p><strong>Sequence diagram</strong>: временная, для конкретного сценария. Кто, что и в каком порядке вызывает. UML, PlantUML. Используй для: описания аутентификации, прохождения платежа, интеграционных сценариев.</p><p><strong>Component diagram</strong>: структурная, без привязки ко времени. Компоненты и зависимости. Для онбординга и архитектурных обсуждений.</p><p><strong>ER diagram</strong>: модель данных — сущности, атрибуты, связи. При проектировании БД.</p><p><strong>C4 model</strong>: 4 уровня детализации — Context, Container, Component, Code. Для документирования архитектуры на разных уровнях.</p>',
+      interview: 'Какие диаграммы используешь? Чем sequence отличается от component?' },
+    { title: 'Цикл работы с требованиями',
+      body: '<p>1. <strong>As-is анализ</strong>: текущие процессы, где боль.</p><p>2. <strong>Сбор</strong>: интервью, воркшопы, документация. Первичный пул требований.</p><p>3. <strong>Документирование</strong>: ФТ, НФТ, use cases в Confluence.</p><p>4. <strong>Согласование</strong>: ревью с заказчиком, разработкой, архитектором, безопасностью. Протоколы встреч.</p><p>5. <strong>Декомпозиция</strong>: задачи в Jira, приоритизация.</p><p>6. <strong>Сопровождение разработки</strong>: ответы на вопросы, ревью решений.</p><p>7. <strong>Верификация</strong>: проверка по критериям приёмки с QA.</p><p>8. <strong>Приёмка</strong>: демо, обновление документации, инструкции.</p>',
+      interview: 'Опиши полный цикл работы с требованиями.' },
+    { title: 'User Story и критерии приёмки',
+      body: '<p><strong>User Story</strong>: «Как [роль], я хочу [действие], чтобы [ценность]».</p><p>Пример: «Как клиент брокера, я хочу видеть историю сделок за произвольный период, чтобы анализировать доходность».</p><p><strong>Критерии приёмки (Given/When/Then)</strong>: Given клиент авторизован, When запрашивает историю сделок, Then система возвращает список, отсортированный по дате, с полями: инструмент, количество, цена, дата, P&amp;L.</p><p><strong>Definition of Done</strong>: общие критерии готовности для команды — написан, покрыт тестами, прошёл code review, задеплоено в staging.</p>',
+      interview: 'Как пишешь user story? Напиши story для просмотра истории торговых сделок.' },
+    { title: 'Описание интеграций',
+      body: '<p><strong>Что описывать</strong>: участники, направление, протокол (REST/Kafka/SOAP), формат данных, аутентификация, обработка ошибок, SLA.</p><p><strong>Контракт API</strong>: OpenAPI-спецификация или схема Kafka-топика. Согласовывается с обеими сторонами до разработки.</p><p><strong>Sequence diagram</strong>: обязательный артефакт — показывает последовательность вызовов, включая обработку ошибок и таймауты.</p><p><strong>В Confluence</strong>: список интеграций системы, для каждой — контракт, SLA, ответственные команды, ссылки на мониторинг.</p>',
+      interview: 'Что описываешь при проектировании новой интеграции?' },
+    { title: 'ADR: архитектурные решения',
+      body: '<p><strong>Architecture Decision Record (ADR)</strong>: документ, фиксирующий архитектурное решение, контекст, альтернативы и последствия.</p><p><strong>Структура</strong>: заголовок → статус → контекст → решение → альтернативы → последствия (плюсы, минусы, риски).</p><p><strong>Зачем</strong>: через полгода никто не помнит, почему выбрали именно это. ADR сохраняет контекст.</p><p><strong>Роль СА</strong>: не всегда принимает архитектурные решения, но участвует в обсуждении и фиксирует их последствия для бизнес-логики.</p>',
+      interview: 'Что такое ADR? Как документируешь архитектурные решения?' },
+    { title: 'Работа с Confluence и Jira',
+      body: '<p><strong>Confluence</strong>: база знаний. Требования, архитектурные решения, протоколы, инструкции. Правила: чёткая структура, актуальная дата, ответственный автор, ссылки на связанные документы.</p><p><strong>Jira</strong>: Epic → Story → Task → Sub-task. СА создаёт задачи с описанием и критериями приёмки, расставляет зависимости.</p><p><strong>Связка</strong>: в Confluence — детальные требования, в Jira — задачи со ссылкой. Разработчик видит и задачу, и полный контекст.</p><p><strong>Актуальность</strong>: после релиза — обновить Confluence, закрыть задачи, зафиксировать решения.</p>',
+      interview: 'Как организуешь работу в Confluence и Jira?' },
+    { title: 'Работа с командой',
+      body: '<p><strong>С разработчиками</strong>: отвечает на вопросы по требованиям, участвует в планировании, помогает с декомпозицией, проверяет реализацию.</p><p><strong>С QA</strong>: передаёт сценарии и критерии приёмки, помогает с edge cases, разбирает дефекты — баг или изменение требований.</p><p><strong>С архитектором</strong>: валидирует реализуемость требований, согласовывает интеграционные контракты.</p><p><strong>С заказчиком</strong>: уточняет требования, демонстрирует функционал, фиксирует обратную связь, управляет ожиданиями.</p>',
+      interview: 'Как выстраиваешь работу с разными ролями в команде?' },
+  ],
+  'Безопасность': [
+    { title: 'Аутентификация vs Авторизация',
+      body: '<p><strong>Аутентификация (AuthN)</strong>: «Кто ты?» Проверка логина/пароля, токена, сертификата.</p><p><strong>Авторизация (AuthZ)</strong>: «Что тебе разрешено?» Выполняется после аутентификации. Проверка ролей и прав.</p><p><strong>Важно</strong>: 401 Unauthorized — ошибка аутентификации (не знаем кто ты). 403 Forbidden — ошибка авторизации (знаем, но нет прав).</p><p><strong>Пример</strong>: клиент аутентифицируется через JWT (authN). Перевод выше дневного лимита — ошибка authZ. Просмотр чужого счёта — тоже authZ.</p>',
+      interview: 'Чем аутентификация отличается от авторизации? Приведи пример.' },
+    { title: 'JWT: структура и верификация',
+      body: '<p><strong>JWT</strong> состоит из трёх частей: header.payload.signature. Все части base64url-encoded.</p><p><strong>Header</strong>: тип и алгоритм (HS256, RS256). <strong>Payload</strong>: claims — sub, iss, exp, iat, aud, кастомные поля (role, clientId). <strong>Signature</strong>: криптографическая подпись.</p><p><strong>HS256</strong>: HMAC с общим секретом. <strong>RS256</strong>: RSA, приватный ключ подписывает, публичный верифицирует — лучше для распределённых систем.</p><p><strong>Верификация без БД</strong>: проверка подписи ключом. Если валидна — payload достоверен. Stateless.</p><p><strong>Важно</strong>: payload не зашифрован. Не клади туда секреты. Всегда проверяй exp.</p>',
+      code: '// Header.Payload.Signature\n// eyJhbGciOiJSUzI1NiJ9\n// .eyJzdWIiOiJ1c2VyMTIzIiwiZXhwIjoxNzAwMDAwMDAwfQ\n// .SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+      interview: 'Что такое JWT? Из чего состоит? Как верифицировать без БД?' },
+    { title: 'OAuth 2.0: фреймворк авторизации',
+      body: '<p><strong>OAuth 2.0</strong> — фреймворк делегированной авторизации. Даёт приложению доступ к ресурсам пользователя без передачи пароля.</p><p><strong>Участники</strong>: Resource Owner, Client, Authorization Server, Resource Server.</p><p><strong>Grant types</strong>:</p><ul class="kv-list"><li>Authorization Code — веб и мобайл (самый безопасный)</li><li>Client Credentials — server-to-server (нет пользователя)</li><li>Device Code — устройства без браузера</li><li>Implicit и Password — устаревшие</li></ul><p><strong>Токены</strong>: access token (15-60 мин) + refresh token (дни/недели).</p>',
+      interview: 'Что такое OAuth 2.0? Какие grant types знаешь?' },
+    { title: 'Authorization Code Flow',
+      body: '<p>Самый безопасный flow. Access token не проходит через браузер.</p><ul class="kv-list"><li>1. Клиент перенаправляет пользователя на Authorization Server (client_id, redirect_uri, scope, state)</li><li>2. Пользователь аутентифицируется и даёт согласие</li><li>3. AS возвращает authorization code в redirect_uri</li><li>4. Клиент (сервер) обменивает code на access + refresh token через POST с client_secret</li><li>5. Клиент использует access token для API</li></ul><p><strong>Зачем code</strong>: access token не попадает в историю браузера и логи. Code — одноразовый, обменивается сервер-к-серверу.</p><p><strong>PKCE</strong>: для мобильных, где нельзя хранить client_secret.</p>',
+      interview: 'Объясни Authorization Code Flow. Зачем нужен промежуточный code?' },
+    { title: 'OpenID Connect',
+      body: '<p><strong>OIDC</strong> — уровень аутентификации поверх OAuth 2.0. Добавляет ID Token (JWT с информацией о пользователе: sub, email, name).</p><p><strong>OAuth vs OIDC</strong>: OAuth — «приложение получает доступ к API». OIDC — «приложение узнаёт, кто пользователь».</p><p><strong>Стандартные scopes</strong>: openid (обязателен), profile, email.</p><p><strong>Когда</strong>: OIDC — для SSO, входа через Google/корпоративный провайдер. OAuth — для API-интеграций. В банке: клиент входит через OIDC (authN), OAuth-токен — для доступа к брокерским API (authZ).</p>',
+      interview: 'Чем OAuth 2.0 отличается от OpenID Connect? Когда нужен каждый?' },
+    { title: 'Безопасность в финтехе',
+      body: '<p><strong>Шифрование</strong>: TLS 1.2+ в транзите (обязательно). AES-256 в покое для чувствительных данных.</p><p><strong>PCI DSS</strong>: не хранить CVV, PAN — только в masked/tokenized виде, ограничить доступ к карточным данным.</p><p><strong>Требования ЦБ РФ</strong>: ГОСТ-алгоритмы для персональных данных граждан РФ. Обязательный аудит безопасности.</p><p><strong>Принцип минимальных привилегий</strong>: только необходимые права для каждого сервиса и пользователя.</p><p><strong>Аудит</strong>: полное логирование всех финансовых операций (кто, что, когда, IP). Хранение 5+ лет.</p>',
+      interview: 'Какие требования безопасности применяются в финансовых системах?' },
+    { title: 'Типичные уязвимости: OWASP для СА',
+      body: '<p><strong>Broken Access Control (IDOR)</strong>: пользователь видит чужие данные по /accounts/123. Решение: проверять ownership на сервере.</p><p><strong>Injection</strong>: SQL-инъекция через поля ввода. Решение: параметризованные запросы, ORM.</p><p><strong>Sensitive Data Exposure</strong>: PAN-номера в логах, полные данные счёта в ответе API. Решение: маскирование, токенизация.</p><p><strong>Security Misconfiguration</strong>: дефолтные пароли, verbose error messages со stack trace в production.</p><p><strong>Роль СА</strong>: при проектировании API предусмотреть защиту: не возвращать лишние данные, требовать проверку прав, документировать маскирование в НФТ.</p>',
+      interview: 'Какие типичные уязвимости учитываешь при проектировании API?' },
+  ],
+  'Базы данных': [
+    { title: 'Реляционные БД и ACID',
+      body: '<p><strong>Реляционная БД</strong>: данные в таблицах, связи через внешние ключи.</p><p><strong>ACID</strong>: Atomicity (транзакция целиком или никак), Consistency (данные в корректном состоянии), Isolation (транзакции не мешают друг другу), Durability (после commit данные не потеряются).</p><p><strong>Когда выбирать</strong>: сложные связи, важна целостность, нужны транзакции (финансовые операции), сложные аналитические запросы.</p><p><strong>Примеры</strong>: PostgreSQL (основной выбор), Oracle (legacy в банках), MS SQL Server.</p>',
+      interview: 'Что такое ACID? Почему критично для финансовых систем?' },
+    { title: 'Нереляционные БД',
+      body: '<p><strong>MongoDB (документы)</strong>: гибкая схема, JSON-документы. CMS, каталоги, профили.</p><p><strong>Redis (ключ-значение)</strong>: данные в памяти, максимальная скорость. Кеш балансов, сессии, rate limiting, distributed locks.</p><p><strong>ClickHouse (колоночная)</strong>: быстрые аналитические запросы по большому объёму. Отчётность, аналитика транзакций.</p><p><strong>Neo4j (графовая)</strong>: для данных с множеством связей. Фрод-детекция по связям между счетами.</p><p><strong>Принцип</strong>: нет универсальной БД. Типичный стек: PostgreSQL + Redis + ClickHouse.</p>',
+      interview: 'Чем MongoDB отличается от PostgreSQL? Когда используешь Redis?' },
+    { title: 'SQL: базовые конструкции',
+      body: '<p><strong>SELECT</strong>: выбрать данные. Избегай SELECT * в проде — выбирай только нужные поля.</p><p><strong>WHERE</strong>: фильтрация. Операторы: =, !=, >, <, BETWEEN, IN, LIKE, IS NULL.</p><p><strong>ORDER BY</strong>: сортировка. ASC (по умолчанию), DESC.</p><p><strong>LIMIT / OFFSET</strong>: пагинация. На больших таблицах OFFSET медленный — лучше cursor-based.</p>',
+      code: '-- Транзакции клиента за 30 дней\nSELECT transaction_id, amount, currency, created_at, status\nFROM transactions\nWHERE account_id = 12345\n  AND created_at >= NOW() - INTERVAL \'30 days\'\n  AND status = \'completed\'\nORDER BY created_at DESC\nLIMIT 50;',
+      interview: 'Напиши запрос для получения последних 50 транзакций клиента.' },
+    { title: 'JOIN-ы',
+      body: '<p><strong>INNER JOIN</strong>: только строки с совпадением в обеих таблицах.</p><p><strong>LEFT JOIN</strong>: все из левой + NULL справа, если нет совпадения. Для опциональных связей: все клиенты, включая тех без транзакций.</p><p><strong>RIGHT JOIN</strong>: все из правой. Почти не используется — лучше переписать как LEFT.</p><p><strong>FULL OUTER JOIN</strong>: все из обеих таблиц, NULL там где нет совпадения.</p>',
+      code: '-- Клиенты и сумма транзакций (включая без транзакций)\nSELECT c.name, COALESCE(SUM(t.amount), 0) AS total\nFROM clients c\nLEFT JOIN accounts a ON c.client_id = a.client_id\nLEFT JOIN transactions t ON a.account_id = t.account_id\n  AND t.status = \'completed\'\nGROUP BY c.client_id, c.name;',
+      interview: 'Чем INNER JOIN отличается от LEFT JOIN? Когда какой выбираешь?' },
+    { title: 'Агрегации: GROUP BY и HAVING',
+      body: '<p><strong>Агрегатные функции</strong>: COUNT(), SUM(), AVG(), MAX(), MIN().</p><p><strong>GROUP BY</strong>: в SELECT — только колонки из GROUP BY и агрегатные функции.</p><p><strong>HAVING</strong>: фильтр после группировки. WHERE не работает с агрегатами.</p><p><strong>WHERE vs HAVING</strong>: WHERE фильтрует до группировки (быстрее), HAVING — результаты группировки.</p>',
+      code: '-- Топ-5 клиентов по обороту, только > 1 млн\nSELECT c.name, SUM(t.amount) AS turnover\nFROM transactions t\nJOIN accounts a ON t.account_id = a.account_id\nJOIN clients c ON a.client_id = c.client_id\nWHERE t.created_at >= NOW() - INTERVAL \'30 days\'\n  AND t.status = \'completed\'\nGROUP BY c.client_id, c.name\nHAVING SUM(t.amount) > 1000000\nORDER BY turnover DESC\nLIMIT 5;',
+      interview: 'Чем WHERE отличается от HAVING? Напиши запрос с агрегацией.' },
+    { title: 'Индексы',
+      body: '<p><strong>Индекс</strong>: ускоряет поиск. Без индекса — full table scan O(n). С B-tree индексом — O(log n).</p><p><strong>B-tree</strong>: для =, >, <, BETWEEN, ORDER BY, LIKE \'prefix%\'.</p><p><strong>Составной индекс</strong>: на нескольких колонках. Порядок важен — работает слева направо.</p><p><strong>Когда вреден</strong>: часто обновляемые таблицы (замедляет INSERT/UPDATE/DELETE), малые таблицы, слишком много индексов.</p><p><strong>EXPLAIN ANALYZE</strong>: план выполнения запроса — для диагностики медленных.</p>',
+      interview: 'Что такое индекс? Когда помогает, а когда вреден?' },
+    { title: 'Нормализация и денормализация',
+      body: '<p><strong>Нормализация</strong>: устранение дублирования. 1НФ, 2НФ, 3НФ — каждая ужесточает требования к структуре.</p><p><strong>Денормализация</strong>: намеренная избыточность для ускорения чтения. Снижает JOIN-ы ценой сложности обновлений.</p><p><strong>Когда оправдана</strong>: высокая нагрузка на чтение, медленные JOIN-ы, данные меняются редко, отчётные таблицы.</p><p><strong>В финтехе</strong>: client_name в transactions (вместо JOIN каждый раз), предрасчитанный баланс, агрегированные дневные обороты для отчётов.</p><p><strong>Риск</strong>: дублированные данные рассинхронизируются. Нужна стратегия обновления.</p>',
+      interview: 'Что такое денормализация? Когда оправдана? Пример из финтеха.' },
+    { title: 'Транзакции и уровни изоляции',
+      body: '<p><strong>Транзакция</strong>: BEGIN → операции → COMMIT или ROLLBACK.</p><p><strong>Уровни изоляции</strong>:</p><ul class="kv-list"><li>Read Uncommitted: видит незакоммиченные изменения (грязное чтение)</li><li>Read Committed: только закоммиченные (дефолт PostgreSQL)</li><li>Repeatable Read: повторное чтение строки даёт тот же результат</li><li>Serializable: полная изоляция, как последовательное выполнение</li></ul><p><strong>В финтехе</strong>: для переводов и списаний — Repeatable Read или Serializable. Для чтения баланса — Read Committed.</p><p><strong>Deadlock</strong>: PostgreSQL обнаруживает и откатывает одну транзакцию. Решение: блокировать ресурсы в одном порядке.</p>',
+      interview: 'Что такое уровни изоляции? Какой выберешь для операции перевода?' },
+  ],
+};
+const QUESTIONS = {
+  'Архитектура': [
+    { q: 'Чем отличается оркестрация от хореографии в микросервисах? Когда ты выберешь один подход вместо другого?', hint: 'Оркестрация — центральный координатор. Хореография — события между сервисами. Дебаггинг vs масштабирование.' },
+    { q: 'Тебе нужно разбить монолит на микросервисы. По какому принципу определяешь границы сервисов?', hint: 'DDD Bounded Context, принцип единой ответственности, закон Конвея, независимость деплоя.' },
+    { q: 'Kafka и RabbitMQ — в чём разница? Когда выберешь один, а когда другой?', hint: 'Kafka — лог событий, replay, throughput. RabbitMQ — task queues, routing.' },
+    { q: 'Для чего нужен балансировщик нагрузки? Назови 2-3 алгоритма и объясни разницу.', hint: 'Round Robin, Least Connections, IP Hash. L4 vs L7.' },
+    { q: 'Что такое паттерн Saga? Как решает проблему распределённых транзакций?', hint: 'Локальные транзакции + компенсирующие операции. Choreography и Orchestration.' },
+    { q: 'Что такое API Gateway? Какие задачи он решает?', hint: 'Единая точка входа: маршрутизация, authn, rate limiting, логирование.' },
+    { q: 'Чем синхронное взаимодействие отличается от асинхронного? Когда что применяешь?', hint: 'REST синхронно — ждёшь ответ. Kafka асинхронно — не ждёшь. Когда нужен немедленный ответ?' },
+    { q: 'Что такое Circuit Breaker? Как работает и зачем нужен?', hint: 'Автоматический выключатель при каскадных сбоях. Closed → Open → Half-Open.' },
+  ],
+  'REST API': [
+    { q: 'Объясни разницу между PUT и PATCH. Когда использовать каждый?', hint: 'PUT — полная замена. PATCH — частичное обновление. Идемпотентность.' },
+    { q: 'Как спроектировать URL для получения транзакций конкретного счёта? Как передавать фильтры?', hint: '/accounts/{id}/transactions — ID в пути. ?status=completed — фильтры в query.' },
+    { q: 'Какой HTTP-код вернёшь: клиент передал отрицательную сумму перевода? попытка посмотреть чужой счёт? сервер упал?', hint: '422 (семантически невалидно), 403 (нет прав), 500.' },
+    { q: 'Что такое идемпотентность? Почему критична для платёжного API?', hint: 'Повторный вызов = тот же результат. Idempotency Key для POST. Нельзя списать дважды.' },
+    { q: 'Как версионировать API? Назови 2 подхода с плюсами и минусами.', hint: 'URI versioning (/v1/), Header versioning. Deprecation-период.' },
+    { q: 'Что такое OpenAPI? Зачем нужна спецификация API?', hint: 'Стандарт описания REST API. Contract-first подход.' },
+    { q: 'Что такое rate limiting? Как реализовать и что вернуть клиенту при превышении?', hint: '429 Too Many Requests. Заголовки X-RateLimit-*. Token Bucket.' },
+    { q: 'Что такое CORS? Когда браузер делает preflight?', hint: 'Cross-Origin Resource Sharing. OPTIONS для non-simple запросов.' },
+  ],
+  'Документация': [
+    { q: 'Какие артефакты готовишь при проектировании новой интеграции двух сервисов?', hint: 'Sequence diagram, API-контракт (OpenAPI), НФТ, обработка ошибок.' },
+    { q: 'Что такое НФТ? Приведи 4 примера для брокерской платформы с конкретными числами.', hint: 'Время ответа, доступность, шифрование, логирование. Все с измеримыми значениями.' },
+    { q: 'Опиши полный цикл работы с требованиями для новой функции платёжного сервиса.', hint: 'As-is → сбор → документирование → согласование → декомпозиция → разработка → верификация.' },
+    { q: 'Чем sequence diagram отличается от component diagram? Когда используешь каждую?', hint: 'Sequence — временная, для сценариев. Component — структурная, для архитектуры.' },
+    { q: 'Как пишешь user story? Напиши story для функции просмотра истории торговых сделок.', hint: 'Как [роль], я хочу [действие], чтобы [ценность]. Плюс критерии приёмки.' },
+    { q: 'Как организуешь базу знаний проекта в Confluence?', hint: 'Структура разделов, актуальность, связи с Jira, ответственный, дата обновления.' },
+  ],
+  'Безопасность': [
+    { q: 'Объясни OAuth 2.0 Authorization Code Flow. Зачем нужен промежуточный authorization code?', hint: 'Code нужен, чтобы access token не прошёл через браузер. Сервер-к-серверу через client_secret.' },
+    { q: 'Чем OAuth 2.0 отличается от OpenID Connect? Когда нужен каждый?', hint: 'OAuth — авторизация. OIDC — аутентификация. OIDC поверх OAuth.' },
+    { q: 'Что такое JWT? Из чего состоит? Как верифицировать без БД?', hint: 'Header + Payload + Signature. Проверка подписи ключом. Stateless.' },
+    { q: 'Чем аутентификация отличается от авторизации? Чем 401 отличается от 403?', hint: 'AuthN — кто ты. AuthZ — что можно. 401 — не аутентифицирован. 403 — нет прав.' },
+    { q: 'Клиент делает перевод 1 млн рублей. Опиши путь проверок безопасности до выполнения.', hint: 'Проверка JWT → авторизация → лимиты → антифрод → 2FA? → логирование.' },
+    { q: 'Что такое IDOR? Как защититься?', hint: 'Insecure Direct Object Reference — доступ к чужим ресурсам по ID. Проверка ownership на сервере.' },
+  ],
+  'Базы данных': [
+    { q: 'Напиши SQL: топ-5 клиентов по сумме завершённых транзакций за 30 дней. Таблицы: clients(client_id, name), accounts(account_id, client_id), transactions(tx_id, account_id, amount, status, created_at).', hint: 'JOIN трёх таблиц + WHERE + GROUP BY + SUM + ORDER BY DESC + LIMIT 5.' },
+    { q: 'Чем INNER JOIN отличается от LEFT JOIN? Когда выберешь LEFT JOIN?', hint: 'INNER — только совпадения. LEFT — все из левой + NULL. Для опциональных связей.' },
+    { q: 'Что такое денормализация? Когда оправдана в финтехе? Конкретный пример.', hint: 'Избыточные данные для чтения. Пример: client_name в transactions.' },
+    { q: 'Чем WHERE отличается от HAVING? Напиши запрос где нужен HAVING.', hint: 'WHERE — до группировки. HAVING — после. HAVING для фильтрации агрегатов.' },
+    { q: 'Что такое индекс? Когда помогает, а когда вреден?', hint: 'Ускоряет поиск. Вреден при частых записях, малых таблицах.' },
+    { q: 'Что такое уровни изоляции транзакций? Какой выберешь для перевода средств?', hint: 'Read Committed, Repeatable Read, Serializable. Для переводов — Repeatable Read или выше.' },
+    { q: 'Чем реляционная БД отличается от документоориентированной? Когда PostgreSQL, MongoDB, Redis?', hint: 'ACID vs гибкая схема. Redis — кеш. MongoDB — каталоги. PostgreSQL — финансы.' },
+  ],
+};
+let apiKey = '';
+let allQuestions = [];
+let currentIdx = 0;
+let scores = [];
+let hintVisible = false;
+let isLoading = false;
+
+function startApp() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key.startsWith('sk-ant-')) { alert('Ключ должен начинаться с sk-ant-'); return; }
+  apiKey = key;
+  document.getElementById('api-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  buildTheoryTopics();
+  buildInterviewTopics();
+  renderTheory('Архитектура');
+}
+
+function switchMode(mode) {
+  document.querySelectorAll('.nav-tab').forEach((t, i) => {
+    t.classList.toggle('active', (mode === 'theory' && i === 0) || (mode === 'interview' && i === 1));
+  });
+  document.getElementById('theory-section').classList.toggle('visible', mode === 'theory');
+  document.getElementById('interview-section').classList.toggle('visible', mode === 'interview');
+  if (mode === 'interview' && allQuestions.length === 0) { buildQuestions(null); showQuestion(); }
+}
+
+function buildTheoryTopics() {
+  const bar = document.getElementById('theory-topics');
+  bar.innerHTML = '';
+  Object.keys(THEORY).forEach((topic, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'topic-pill' + (i === 0 ? ' active' : '');
+    pill.textContent = topic;
+    pill.onclick = () => {
+      document.querySelectorAll('#theory-topics .topic-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      renderTheory(topic);
+    };
+    bar.appendChild(pill);
+  });
+}
+
+function buildInterviewTopics() {
+  const bar = document.getElementById('interview-topics');
+  bar.innerHTML = '';
+  const all = document.createElement('div');
+  all.className = 'topic-pill active';
+  all.textContent = 'Все темы';
+  all.onclick = () => {
+    document.querySelectorAll('#interview-topics .topic-pill').forEach(p => p.classList.remove('active'));
+    all.classList.add('active');
+    buildQuestions(null); resetInterview();
+  };
+  bar.appendChild(all);
+  Object.keys(QUESTIONS).forEach(topic => {
+    const pill = document.createElement('div');
+    pill.className = 'topic-pill';
+    pill.textContent = topic;
+    pill.onclick = () => {
+      document.querySelectorAll('#interview-topics .topic-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      buildQuestions(topic); resetInterview();
+    };
+    bar.appendChild(pill);
+  });
+}
+
+function renderTheory(topic) {
+  const blocks = THEORY[topic];
+  const container = document.getElementById('theory-content');
+  container.innerHTML = blocks.map(b => {
+    const codeHtml = b.code ? '<div class="code-block">' + b.code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' : '';
+    const iqHtml = b.interview ? '<div class="interview-q-block"><strong>Типичный вопрос интервью</strong>' + b.interview + '</div>' : '';
+    return '<div class="theory-block"><h2>' + b.title + '</h2>' + b.body + codeHtml + iqHtml + '</div>';
+  }).join('');
+}
+
+function buildQuestions(filterTopic) {
+  allQuestions = [];
+  for (const [topic, qs] of Object.entries(QUESTIONS)) {
+    if (filterTopic && topic !== filterTopic) continue;
+    qs.forEach(q => allQuestions.push({ topic, ...q }));
+  }
+  shuffle(allQuestions);
+  currentIdx = 0;
+  scores = [];
+}
+
+function resetInterview() {
+  document.getElementById('summary-area').classList.remove('visible');
+  document.getElementById('question-area').style.display = 'block';
+  showQuestion();
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function showQuestion() {
+  if (currentIdx >= allQuestions.length) { showSummary(); return; }
+  const q = allQuestions[currentIdx];
+  document.getElementById('q-num').textContent = currentIdx + 1;
+  document.getElementById('q-total').textContent = allQuestions.length;
+  document.getElementById('q-topic').textContent = q.topic;
+  document.getElementById('q-text').textContent = q.q;
+  document.getElementById('q-hint').textContent = q.hint;
+  document.getElementById('q-hint').classList.remove('visible');
+  document.getElementById('answer-input').value = '';
+  document.getElementById('feedback-area').classList.remove('visible');
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = false; btn.textContent = 'Проверить ответ'; btn.classList.remove('loading-dots');
+  hintVisible = false;
+  document.getElementById('progress-fill').style.width = (currentIdx / allQuestions.length * 100) + '%';
+}
+
+function toggleHint() {
+  hintVisible = !hintVisible;
+  document.getElementById('q-hint').classList.toggle('visible', hintVisible);
+}
+
+function skipQuestion() { scores.push(0); currentIdx++; showQuestion(); }
+
+async function submitAnswer() {
+  const answer = document.getElementById('answer-input').value.trim();
+  if (!answer) { alert('Напиши ответ перед проверкой.'); return; }
+  if (isLoading) return;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Проверяю'; btn.classList.add('loading-dots');
+  isLoading = true;
+  const q = allQuestions[currentIdx];
+  const prompt = 'Ты опытный технический интервьюер для системного аналитика в крупном банке. Дай развёрнутый детальный фидбек.\n\nТема: ' + q.topic + '\nВопрос: ' + q.q + '\nОтвет кандидата: ' + answer + '\n\nОтвечай строго в JSON без markdown:\n{"score":<1-5>,"verdict":"<Отлично/Хорошо/Частично/Слабо/Неверно>","evaluation":"<детальная оценка что правильно и что неточно, 4-6 предложений>","missing":"<конкретные термины и концепции которых не хватало, или Ответ полный>","ideal":"<эталонный ответ 5-10 предложений с конкретикой и примерами из финтеха>","code":"<SQL или псевдокод если нужен, иначе пустая строка>","tip":"<практический совет как структурировать ответ на собесе, 1-2 предложения>"}';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1400, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(text);
+    scores.push(parsed.score);
+    showFeedback(parsed);
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
+    btn.disabled = false;
+  }
+  btn.textContent = 'Проверить ответ'; btn.classList.remove('loading-dots'); isLoading = false;
+}
+
+function showFeedback(p) {
+  const badge = document.getElementById('score-badge');
+  badge.textContent = p.verdict;
+  badge.className = 'score-badge ' + (p.score >= 4 ? 's-strong' : p.score === 3 ? 's-mid' : 's-weak');
+  document.getElementById('score-num').textContent = p.score + ' / 5';
+  document.getElementById('fb-evaluation').innerHTML = p.evaluation.replace(/\n/g, '<br>');
+  document.getElementById('fb-missing').innerHTML = p.missing.replace(/\n/g, '<br>');
+  document.getElementById('fb-ideal').innerHTML = p.ideal.replace(/\n/g, '<br>');
+  const codeEl = document.getElementById('fb-code');
+  codeEl.style.display = p.code ? 'block' : 'none';
+  if (p.code) codeEl.textContent = p.code;
+  document.getElementById('fb-tip').innerHTML = p.tip;
+  document.getElementById('feedback-area').classList.add('visible');
+}
+
+function nextQuestion() { currentIdx++; showQuestion(); }
+
+function showSummary() {
+  document.getElementById('question-area').style.display = 'none';
+  const answered = scores.filter(s => s > 0);
+  const avg = answered.length ? (answered.reduce((a,b)=>a+b,0)/answered.length).toFixed(1) : '0';
+  document.getElementById('summary-score').textContent = avg + ' / 5';
+  document.getElementById('s-answered').textContent = answered.length + ' / ' + allQuestions.length;
+  document.getElementById('s-strong').textContent = scores.filter(s=>s>=4).length;
+  document.getElementById('s-weak').textContent = scores.filter(s=>s<=2&&s>0).length;
+  document.getElementById('summary-area').classList.add('visible');
+  document.getElementById('progress-fill').style.width = '100%';
+}
+
+function restartSession() {
+  document.getElementById('summary-area').classList.remove('visible');
+  document.getElementById('question-area').style.display = 'block';
+  buildQuestions(null); showQuestion();
+}
+
+let recognition = null;
+let isListening = false;
+
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { alert('Голосовой ввод работает только в Chrome или Edge.'); return; }
+  if (isListening) { stopVoice(); } else { startVoice(); }
+}
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'ru-RU'; recognition.continuous = true; recognition.interimResults = true;
+  const textarea = document.getElementById('answer-input');
+  const btn = document.getElementById('mic-btn');
+  let finalTranscript = textarea.value;
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('voice-status').style.display = 'block';
+    btn.style.color = 'var(--accent-light)'; btn.style.borderColor = 'var(--accent)';
+    btn.innerHTML = '&#9209;';
+  };
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript + ' '; }
+      else { interim = e.results[i][0].transcript; }
+    }
+    textarea.value = finalTranscript + interim;
+  };
+  recognition.onerror = (e) => { if (e.error !== 'no-speech') alert('Ошибка микрофона: ' + e.error); stopVoice(); };
+  recognition.onend = () => { if (isListening) recognition.start(); };
+  recognition.start();
+}
+
+function stopVoice() {
+  isListening = false;
+  if (recognition) { recognition.onend = null; recognition.stop(); }
+  document.getElementById('voice-status').style.display = 'none';
+  const btn = document.getElementById('mic-btn');
+  btn.style.color = 'var(--text-muted)'; btn.style.borderColor = 'var(--border)';
+  btn.innerHTML = '&#127908;';
+}
+
+</script>
+</body>
+</html>
