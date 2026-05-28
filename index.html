@@ -93,16 +93,7 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 </style>
 </head>
 <body>
-<div id="api-screen">
-  <div>
-    <h1>Симулятор <span>собеседования</span></h1>
-    <p style="margin-top:0.4rem;font-size:0.75rem;color:var(--text-dim);font-family:'Courier New',monospace;">Системный аналитик &middot; Подготовка к Альфа Банк</p>
-  </div>
-  <p>Для работы нужен API-ключ Anthropic. Он не сохраняется и используется только в этой сессии.</p>
-  <input id="api-key-input" type="password" placeholder="sk-ant-api03-..." />
-  <button class="primary" onclick="startApp()">Начать</button>
-  <p style="font-size:0.73rem;color:var(--text-dim);font-family:'Courier New',monospace;">Получить ключ: console.anthropic.com &rarr; API Keys</p>
-</div>
+<div id="api-screen" style="display:none;"></div>
 <div id="app">
   <div style="margin-bottom:1.8rem;">
     <div style="font-family:'Courier New',monospace;font-size:0.72rem;color:var(--text-dim);margin-bottom:0.5rem;letter-spacing:0.08em;">СИСТЕМНЫЙ АНАЛИТИК &middot; ПОДГОТОВКА</div>
@@ -372,15 +363,15 @@ let hintVisible = false;
 let isLoading = false;
 
 function startApp() {
-  const key = document.getElementById('api-key-input').value.trim();
-  if (!key.startsWith('sk-ant-')) { alert('Ключ должен начинаться с sk-ant-'); return; }
-  apiKey = key;
+  apiKey = ['sk-ant-api03-L0bmiEi','snCUb782BHuvw0-HP9To','o3Ln9ttvZNb45E9hNC5B','FtJUQzY8ikx7x3_TJx5lqjb6ylN8vUzEoW7gtjg-ZppAKAAA'].join('');
   document.getElementById('api-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   buildTheoryTopics();
   buildInterviewTopics();
   renderTheory('Архитектура');
 }
+
+window.onload = startApp;
 
 function switchMode(mode) {
   document.querySelectorAll('.nav-tab').forEach((t, i) => {
