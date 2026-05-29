@@ -492,7 +492,7 @@ async function submitAnswer() {
   const prompt = 'Ты опытный технический интервьюер для системного аналитика в крупном банке. Дай развёрнутый детальный фидбек.\n\nТема: ' + q.topic + '\nВопрос: ' + q.q + '\nОтвет кандидата: ' + answer + '\n\nОтвечай строго в JSON без markdown:\n{"score":<1-5>,"verdict":"<Отлично/Хорошо/Частично/Слабо/Неверно>","evaluation":"<детальная оценка что правильно и что неточно, 4-6 предложений>","missing":"<конкретные термины и концепции которых не хватало, или Ответ полный>","ideal":"<эталонный ответ 5-10 предложений с конкретикой и примерами из финтеха>","code":"<SQL или псевдокод если нужен, иначе пустая строка>","tip":"<практический совет как структурировать ответ на собесе, 1-2 предложения>"}';
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('https://anthropic-proxy.parfenenok-ilia.workers.dev', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1400, messages: [{ role: 'user', content: prompt }] })
