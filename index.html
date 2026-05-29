@@ -494,7 +494,7 @@ async function submitAnswer() {
   try {
     const resp = await fetch('https://anthropic-proxy.parfenenok-ilia.workers.dev', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1400, messages: [{ role: 'user', content: prompt }] })
     });
     const data = await resp.json();
